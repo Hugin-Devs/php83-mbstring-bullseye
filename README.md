@@ -1,25 +1,29 @@
 # php83-mbstring-bullseye
 
-Instalador del módulo **mbstring de PHP 8.3** para **Debian 11 Bullseye amd64**, con todas sus dependencias obligatorias empaquetadas.
+Kit de **PHP 8.3.35** para **Debian 11 Bullseye amd64**: instalación o restauración del set completo (cli, fpm y extensiones) con verificación SHA256 y protecciones contra eliminación de paquetes.
 
-Los `.deb` provienen de los repositorios oficiales:
+## Paquetes incluidos (todos en 8.3.35-1+0~20260925.87+debian11~1)
 
 | Paquete | Origen |
 |---|---|
-| `php8.3-mbstring` 8.3.35 | [packages.sury.org](https://packages.sury.org/php/) |
-| `php8.3-common` 8.3.35 | packages.sury.org |
-| `php-common` 2:101 | packages.sury.org |
-| `libonig5` 6.9.6-1.1 | deb.debian.org (bullseye) |
-| `libssl1.1` 1.1.1w-0+deb11u1 | deb.debian.org (bullseye) |
-| `libffi7` 3.3-6 | deb.debian.org (bullseye) |
-| `ucf` 3.0043 | deb.debian.org (bullseye) |
-| `psmisc` 23.4-2 | deb.debian.org (bullseye) |
+| php8.3-common, php8.3-cli, php8.3-fpm | [packages.sury.org](https://packages.sury.org/php/) |
+| php8.3-opcache, php8.3-readline, php8.3-curl | packages.sury.org |
+| php8.3-gd, php8.3-intl, php8.3-pgsql | packages.sury.org |
+| php8.3-xml, php8.3-zip, php8.3-mbstring | packages.sury.org |
+| php-common | packages.sury.org |
+| libonig5, libssl1.1, libffi7, ucf, psmisc | deb.debian.org (bullseye) |
 
-Todos los archivos están verificados con SHA256 contra los índices oficiales (`SHA256SUMS`).
+SHA256 de cada archivo en `SHA256SUMS`.
 
-## Instalación rápida
+## Protecciones del instalador
 
-En la máquina destino (Debian 11 amd64):
+- **Dry-run obligatorio**: simula con `apt-get install -s` y **aborta** si el plan incluye eliminar paquetes (solo se elimina con `--permitir-remociones`).
+- **Set coherente**: todos los php8.3-* de la misma versión exacta; una instalación/actualización conjunta nunca deja paquetes incompatibles.
+- **Restaura el PATH**: crea `/usr/bin/php` y `/usr/sbin/php-fpm` si no existen.
+- **Servicio**: `systemctl enable --now php8.3-fpm`.
+- **Verificación final**: comprueba `php -v` y las extensiones curl, gd, intl, mbstring, opcache, pgsql, readline, xml, zip.
+
+## Instalación con internet
 
 ```bash
 git clone https://github.com/Hugin-Devs/php83-mbstring-bullseye.git
@@ -27,50 +31,51 @@ cd php83-mbstring-bullseye
 sudo ./install.sh
 ```
 
-O en una sola línea (descarga los `.deb` de los mirrors oficiales):
+## Restauración offline (red local, sin internet)
+
+Útil si la máquina dañada no tiene salida a internet. Se sirve el kit desde otra máquina de la red (por ejemplo, la que tiene este repo):
+
+**1. En la máquina que tiene el kit** (sirve la carpeta; una de estas opciones):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Hugin-Devs/php83-mbstring-bullseye/main/install.sh | sudo bash
+cd php83-mbstring-bullseye
+python3 -m http.server 8000
+# o con FTP:
+# pip install pyftpdlib && python3 -m pyftpdlib -p 21
 ```
 
-## Qué hace el script
+**2. En la máquina dañada** (descarga, extrae y ejecuta):
 
-1. Verifica que el sistema sea Debian amd64 (advertencia si no es Debian 11).
-2. Usa los `.deb` incluidos en `debs/` si están presentes (modo offline), o los descarga de `packages.sury.org` y `deb.debian.org`.
-3. Comprueba el SHA256 de cada paquete antes de instalarlo.
-4. Omite los paquetes ya instalados en versión igual o superior (evita downgrades).
-5. Instala con `apt-get install --no-install-recommends` para resolver el orden de dependencias.
-6. Verifica al final que `mbstring` aparezca en `php -m`.
+```bash
+curl -O http://<ip-de-la-maquina-que-sirve>:8000/php83-restore-8.3.35.tar.gz
+tar xzf php83-restore-8.3.35.tar.gz
+cd php83-restore-8.3.35
+sudo ./install.sh
+```
+
+(Con FTP: `curl -O ftp://<ip>/php83-restore-8.3.35.tar.gz` en lugar de la URL HTTP.)
 
 ## Verificación manual
 
 ```bash
-php8.3 -m | grep mbstring
-# o
-php -m | grep mbstring
+php -v
+php -m | grep -E 'curl|gd|intl|mbstring|opcache|pgsql|readline|xml|zip'
+ls -la /usr/bin/php /usr/sbin/php-fpm
+systemctl status php8.3-fpm
 ```
 
-Salida esperada: `mbstring`.
-
-## Instalación manual (sin el script)
+## Opciones del script
 
 ```bash
-cd debs/
-sudo apt install ./*.deb
+sudo ./install.sh --permitir-remociones   # permite que apt elimine paquetes
+sudo ./install.sh --help                  # ayuda
 ```
-
-## Requisitos
-
-- Debian 11 Bullseye (también puede funcionar en otras versiones si las librerías del sistema son compatibles).
-- Arquitectura amd64 (x86_64).
-- Privilegios root (o sudo).
-- `curl` solo si usas el modo descarga (sin `debs/` local).
 
 ## Notas
 
-- No añade el repositorio sury a `sources.list`: instala los `.deb` directamente, así que no afecta las actualizaciones del sistema.
-- `libssl1.1` y `libffi7` son librerías del sistema de Debian 11; si ya están en versión igual o superior, el script las omite.
-- Para otra versión de PHP o de Debian, consulta los índices de <https://packages.sury.org/php/>.
+- No añade el repositorio sury a `sources.list`: instala `.deb` sueltos, sin tocar las actualizaciones del sistema.
+- Si `php8.3-common` ya está instalado en otra versión, el script avisa y actualiza **todo el set junto** a 8.3.35 (nunca deja un common nuevo con extensiones viejas).
+- Las librerías del sistema (`libicu67`, `libpq5`, `libzip4`, `libgd3`, `libcurl4`, etc.) no se tocan.
 
 ## Licencia
 
